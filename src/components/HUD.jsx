@@ -1,4 +1,6 @@
 import React from 'react';
+import { motion } from 'framer-motion';
+import { Pause, Heart } from 'lucide-react';
 
 export default function HUD({ 
     hearts, 
@@ -11,20 +13,23 @@ export default function HUD({
     powerupTimer, 
     onPause 
 }) {
-    // Generate heart SVGs
     const renderHearts = () => {
         const heartElements = [];
         for (let i = 0; i < maxHearts; i++) {
-            const color = i < hearts ? '#d9383a' : '#475569';
+            const isActive = i < hearts;
             heartElements.push(
-                <svg 
-                    key={i} 
-                    style={{ width: '24px', height: '24px', marginRight: '3px' }} 
-                    viewBox="0 0 24 24" 
-                    fill={color}
+                <motion.div
+                    key={i}
+                    initial={{ scale: 0.8 }}
+                    animate={{ scale: isActive ? 1 : 0.8, opacity: isActive ? 1 : 0.3 }}
+                    transition={{ type: "spring", stiffness: 300, damping: 20 }}
                 >
-                    <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-                </svg>
+                    <Heart 
+                        size={24} 
+                        fill={isActive ? "#e11d48" : "transparent"} 
+                        color={isActive ? "#e11d48" : "#475569"} 
+                    />
+                </motion.div>
             );
         }
         return heartElements;
@@ -39,40 +44,66 @@ export default function HUD({
     };
 
     return (
-        <div id="hud" className="hud-container">
-            <div className="hud-left">
-                <div className="hud-stat" id="hud-hearts">
-                    {renderHearts()}
+        <motion.div 
+            id="hud" 
+            className="hud-container"
+            initial={{ y: -50, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ duration: 0.5, ease: "easeOut" }}
+        >
+            <div className="hud-group">
+                <div className="hud-stat-pill">
+                    <div className="hearts-container">
+                        {renderHearts()}
+                    </div>
                 </div>
-                <div className="hud-stat">
-                    <img 
-                        src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23FFD700'><circle cx='12' cy='12' r='10'/><text x='12' y='16' font-size='12' font-weight='bold' text-anchor='middle' fill='%23B7791F'>$</text></svg>" 
-                        className="coin-icon" 
-                        alt="Coins"
-                    />
+                <div className="hud-stat-pill" style={{ color: '#fbbf24' }}>
+                    <motion.svg 
+                        xmlns="http://www.w3.org/2000/svg" 
+                        viewBox="0 0 24 24" 
+                        fill="#f59e0b" 
+                        style={{ width: 24, height: 24 }}
+                        animate={{ rotateY: [0, 360] }}
+                        transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+                    >
+                        <circle cx="12" cy="12" r="10"/>
+                        <text x="12" y="16" fontSize="12" fontWeight="bold" textAnchor="middle" fill="#78350f">$</text>
+                    </motion.svg>
                     <span>{String(coins).padStart(3, '0')}</span>
                 </div>
             </div>
 
-            <div className="hud-center">
-                <div className="level-indicator">{levelName}</div>
-                <div className="progress-bar-container">
-                    <div className="progress-bar-fill" style={{ width: `${progress}%` }}></div>
+            <div className="hud-group" style={{ flexDirection: 'column', alignItems: 'center' }}>
+                <div className="hud-center-title">{levelName}</div>
+                <div style={{ width: '300px', height: '6px', background: 'rgba(0,0,0,0.5)', borderRadius: '3px', overflow: 'hidden' }}>
+                    <motion.div 
+                        style={{ height: '100%', background: 'linear-gradient(90deg, #e11d48, #f59e0b)' }}
+                        initial={{ width: 0 }}
+                        animate={{ width: `${progress}%` }}
+                        transition={{ type: "tween", ease: "easeOut" }}
+                    />
                 </div>
             </div>
 
-            <div className="hud-right">
+            <div className="hud-group">
                 {activePowerup && (
-                    <div className="hud-powerup">
+                    <motion.div 
+                        className="hud-stat-pill" 
+                        style={{ background: 'linear-gradient(135deg, rgba(14,165,233,0.8), rgba(15,23,42,0.8))', borderColor: '#0ea5e9' }}
+                        animate={{ boxShadow: ['0 0 10px #0ea5e9', '0 0 25px #0ea5e9', '0 0 10px #0ea5e9'] }}
+                        transition={{ duration: 1.5, repeat: Infinity }}
+                    >
                         <span>{powerupIcons[activePowerup] || '✨'}</span>
                         <span>{powerupTimer}s</span>
-                    </div>
+                    </motion.div>
                 )}
-                <div className="hud-stat">
-                    Score: <span>{String(score).padStart(5, '0')}</span>
+                <div className="hud-stat-pill">
+                    Score: <span style={{ color: '#fbbf24', marginLeft: '6px' }}>{String(score).padStart(5, '0')}</span>
                 </div>
-                <button className="icon-btn" onClick={onPause}>⏸</button>
+                <button className="icon-btn-back" onClick={onPause}>
+                    <Pause size={20} />
+                </button>
             </div>
-        </div>
+        </motion.div>
     );
 }

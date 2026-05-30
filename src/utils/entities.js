@@ -26,6 +26,11 @@ export class Player {
         this.doubleJumpsLeft = 1;
         this.maxDoubleJumps = 1;
         
+        // Advanced platforming mechanics
+        this.coyoteTimer = 0;
+        this.jumpBufferTimer = 0;
+        this.hitStopTimer = 0;
+        
         this.hearts = 3;
         this.maxHearts = 3;
         this.coins = 0;
@@ -45,6 +50,12 @@ export class Player {
     }
 
     update(controls, level) {
+        // Hit-stop effect (game logic freezes briefly for impact weight)
+        if (this.hitStopTimer > 0) {
+            this.hitStopTimer--;
+            return;
+        }
+
         if (this.invulnerableTimer > 0) this.invulnerableTimer--;
         
         if (this.powerupTimer > 0) {
@@ -87,6 +98,11 @@ export class Player {
 
         this.vy += this.gravity;
 
+        // Variable jump height logic
+        if (!controls.jump && this.vy < -4) {
+            this.vy *= 0.85; // Reduce upward velocity if jump key released early
+        }
+
         if (this.activePowerup === 'glide' && controls.jump && this.vy > 1.2) {
             this.vy = 1.2;
         }
@@ -94,33 +110,55 @@ export class Player {
         let isWallSliding = false;
         if ((this.onWallLeft || this.onWallRight) && !this.onGround && this.vy > 0) {
             isWallSliding = true;
-            this.vy = Math.min(this.vy, 1.8);
+            this.vy = Math.min(this.vy, 1.8); // Slower fall on walls
         }
 
-        if (controls.jumpPressed) {
-            controls.jumpPressed = false;
-            
-            if (this.onGround) {
-                this.vy = this.jumpForce;
-                this.onGround = false;
-                audio.playSFX('jump');
-            } else if (isWallSliding) {
-                this.vy = this.jumpForce * 0.95;
-                this.vx = this.onWallLeft ? moveSpeed * 1.1 : -moveSpeed * 1.1;
-                this.facing = this.onWallLeft ? 'right' : 'left';
-                audio.playSFX('jump');
-            } else if (this.doubleJumpsLeft > 0) {
-                this.vy = this.jumpForce * 0.9;
-                this.doubleJumpsLeft--;
-                audio.playSFX('jump');
-                this.animState = 'double_jump';
-            }
-        }
+        const wasOnGround = this.onGround;
 
         this.x += this.vx;
         this.y += this.vy;
 
         PhysicsEngine.resolveTileCollisions(this, level);
+
+        // Coyote Time updates
+        if (wasOnGround && !this.onGround && this.vy >= 0) {
+            this.coyoteTimer = 6; // Frames of leeway to jump after falling off edge
+        } else if (this.onGround) {
+            this.coyoteTimer = 0;
+        } else if (this.coyoteTimer > 0) {
+            this.coyoteTimer--;
+        }
+
+        // Jump Buffering
+        if (controls.jumpPressed) {
+            this.jumpBufferTimer = 6; // Remember jump intent for 6 frames
+            controls.jumpPressed = false;
+        } else if (this.jumpBufferTimer > 0) {
+            this.jumpBufferTimer--;
+        }
+
+        // Execute Jump
+        if (this.jumpBufferTimer > 0) {
+            if (this.onGround || this.coyoteTimer > 0) {
+                this.vy = this.jumpForce;
+                this.onGround = false;
+                this.coyoteTimer = 0;
+                this.jumpBufferTimer = 0;
+                audio.playSFX('jump');
+            } else if (isWallSliding) {
+                this.vy = this.jumpForce * 0.95;
+                this.vx = this.onWallLeft ? moveSpeed * 1.2 : -moveSpeed * 1.2;
+                this.facing = this.onWallLeft ? 'right' : 'left';
+                this.jumpBufferTimer = 0;
+                audio.playSFX('jump');
+            } else if (this.doubleJumpsLeft > 0) {
+                this.vy = this.jumpForce * 0.9;
+                this.doubleJumpsLeft--;
+                this.jumpBufferTimer = 0;
+                audio.playSFX('jump');
+                this.animState = 'double_jump';
+            }
+        }
 
         if (controls.attack && this.attackCooldown === 0) {
             this.attack();
@@ -162,7 +200,7 @@ export class Player {
     attack() {
         this.isAttacking = true;
         this.attackFrame = 0;
-        this.attackCooldown = 25;
+        this.attackCooldown = 20;
         audio.playSFX('attack');
     }
 
@@ -172,6 +210,7 @@ export class Player {
         this.hearts--;
         audio.playSFX('hurt');
         this.invulnerableTimer = 60;
+        this.hitStopTimer = 6; // Brief freeze for impact
         
         this.vy = -5;
         this.vx = this.facing === 'right' ? -4 : 4;
@@ -192,15 +231,28 @@ export class Player {
         
         const frame = assets.sprites.player[this.animState][this.facing];
         if (frame) {
-            ctx.drawImage(frame, renderX - (48 - this.width)/2, renderY - (64 - this.height), 48, 64);
+            // Apply a slight squish/stretch based on velocity for juice
+            ctx.save();
+            let scaleX = 1;
+            let scaleY = 1;
+            if (!this.onGround) {
+                scaleY = 1 + Math.abs(this.vy) * 0.02;
+                scaleX = 1 - Math.abs(this.vy) * 0.01;
+            }
+            ctx.translate(renderX + this.width / 2, renderY + this.height);
+            ctx.scale(scaleX, scaleY);
+            ctx.drawImage(frame, -(48)/2, -(64), 48, 64);
+            ctx.restore();
         }
 
         if (this.activePowerup) {
-            ctx.strokeStyle = this.activePowerup === 'invincible' ? '#fbbf24' : '#60a5fa';
-            ctx.lineWidth = 2;
+            ctx.strokeStyle = this.activePowerup === 'invincible' ? 'rgba(251, 191, 36, 0.8)' : 'rgba(14, 165, 233, 0.8)';
+            ctx.lineWidth = 3;
             ctx.beginPath();
             ctx.arc(renderX + this.width / 2, renderY + this.height / 2, 32, 0, Math.PI * 2);
             ctx.stroke();
+            ctx.fillStyle = this.activePowerup === 'invincible' ? 'rgba(251, 191, 36, 0.2)' : 'rgba(14, 165, 233, 0.2)';
+            ctx.fill();
         }
     }
 }
@@ -222,6 +274,8 @@ export class Enemy {
         this.isDead = false;
         this.patrolDist = 120;
         this.startX = x;
+        this.hitStopTimer = 0;
+        this.flashTimer = 0;
     }
 
     setupDimensions() {
@@ -251,6 +305,12 @@ export class Enemy {
 
     update(level, player) {
         if (this.isDead) return;
+
+        if (this.hitStopTimer > 0) {
+            this.hitStopTimer--;
+            return;
+        }
+        if (this.flashTimer > 0) this.flashTimer--;
 
         if (this.type !== 'bat') {
             this.vy += 0.45;
@@ -292,6 +352,8 @@ export class Enemy {
 
     takeDamage(amount = 1) {
         this.hp -= amount;
+        this.hitStopTimer = 4;
+        this.flashTimer = 4;
         if (this.hp <= 0) {
             this.isDead = true;
         }
@@ -304,6 +366,11 @@ export class Enemy {
         const renderY = Math.round(this.y - camera.y);
         
         ctx.save();
+        if (this.flashTimer > 0) {
+            ctx.globalCompositeOperation = 'lighter';
+            ctx.filter = 'brightness(200%)';
+        }
+
         if (this.facing === 'right') {
             ctx.translate(renderX + this.width, renderY);
             ctx.scale(-1, 1);
@@ -315,9 +382,9 @@ export class Enemy {
 
         if (this.type.startsWith('boss_')) {
             const maxHp = this.type === 'boss_monkey' ? 15 : (this.type === 'boss_yak' ? 20 : 35);
-            ctx.fillStyle = 'rgba(0,0,0,0.5)';
+            ctx.fillStyle = 'rgba(0,0,0,0.6)';
             ctx.fillRect(renderX, renderY - 14, this.width, 6);
-            ctx.fillStyle = '#ef4444';
+            ctx.fillStyle = '#e11d48';
             ctx.fillRect(renderX, renderY - 14, this.width * (this.hp / maxHp), 6);
         }
     }
@@ -345,9 +412,12 @@ export class Projectile {
         const rX = this.x - camera.x;
         const rY = this.y - camera.y;
         
-        ctx.fillStyle = this.type === 'ice' ? '#93c5fd' : '#64748b';
+        ctx.fillStyle = this.type === 'ice' ? '#bae6fd' : '#94a3b8';
+        ctx.shadowColor = this.type === 'ice' ? '#0ea5e9' : '#000';
+        ctx.shadowBlur = 10;
         ctx.beginPath();
         ctx.arc(rX + 6, rY + 6, 6, 0, Math.PI * 2);
         ctx.fill();
+        ctx.shadowBlur = 0;
     }
 }
