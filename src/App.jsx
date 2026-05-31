@@ -128,10 +128,19 @@ export default function App() {
 
     // Handle touch down controls
     const handleTouchDown = (btn) => {
+        if (btn === 'jump') {
+            if (!controlsRef.current.jump) {
+                controlsRef.current.jumpPressed = true;
+            }
+            controlsRef.current.up = true;
+        }
         controlsRef.current[btn] = true;
     };
 
     const handleTouchUp = (btn) => {
+        if (btn === 'jump') {
+            controlsRef.current.up = false;
+        }
         controlsRef.current[btn] = false;
     };
 

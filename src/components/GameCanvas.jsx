@@ -31,7 +31,11 @@ export default function GameCanvas({
         width: 960,
         height: 540,
         lastTime: 0,
-        accumulator: 0
+        accumulator: 0,
+        vignetteGradient: null,
+        sunGradient: null,
+        skyGradient: null,
+        skyGradientKey: null
     });
 
     useEffect(() => {
@@ -39,7 +43,7 @@ export default function GameCanvas({
         const vars = gameVars.current;
         vars.level = worldManager.generateLevel(worldId, levelNum);
         
-        vars.player = new Player(100, 300);
+        vars.player = new Player(280, 300);
         vars.player.maxHearts = upgrades.hearts;
         vars.player.hearts = vars.player.maxHearts;
         vars.player.jumpForce = -10.5 - (upgrades.jump * 0.5);
@@ -49,6 +53,10 @@ export default function GameCanvas({
         vars.projectiles = [];
         vars.particles = [];
         vars.weatherParticles = [];
+        vars.vignetteGradient = null;
+        vars.sunGradient = null;
+        vars.skyGradient = null;
+        vars.skyGradientKey = null;
         
         // Seed weather
         const weather = vars.level.weather;
@@ -83,11 +91,7 @@ export default function GameCanvas({
         const dt = 1000 / FPS;
 
         const handleLoop = (currentTime) => {
-            if (gameState !== 'play') {
-                gameVars.current.lastTime = currentTime;
-                loopRef.current = requestAnimationFrame(handleLoop);
-                return;
-            }
+            if (gameState !== 'play') return;
             
             const vars = gameVars.current;
             let frameTime = currentTime - vars.lastTime;
@@ -114,6 +118,7 @@ export default function GameCanvas({
         return () => {
             if (loopRef.current) {
                 cancelAnimationFrame(loopRef.current);
+                loopRef.current = null;
             }
         };
     }, [gameState]);
@@ -137,9 +142,8 @@ export default function GameCanvas({
             vars.projectiles.push(new Projectile(vars.player.x + vars.player.width/2, vars.player.y + 15, vx, 0, vars.player.activePowerup === 'snow_spirit' ? 'ice' : 'blade'));
         }
 
-        vars.projectiles.forEach((p, idx) => {
+        vars.projectiles.forEach((p) => {
             p.update();
-            if (p.life <= 0) vars.projectiles.splice(idx, 1);
         });
 
         // Moving platforms
@@ -158,6 +162,8 @@ export default function GameCanvas({
 
         // Enemies update & combat checks
         vars.level.enemies.forEach(enemy => {
+            if (enemy.isDead) return;
+
             enemy.update(vars.level, vars.player);
             
             // Player Melee Attack
@@ -177,17 +183,18 @@ export default function GameCanvas({
             }
 
             // Projectiles collisions
-            vars.projectiles.forEach((p, pIdx) => {
+            vars.projectiles.forEach((p) => {
+                if (p.active === false || p.life <= 0) return;
                 if (PhysicsEngine.checkCollision(p, enemy)) {
                     enemy.takeDamage(1);
-                    vars.projectiles.splice(pIdx, 1);
+                    p.active = false;
                     vars.player.score += 150;
                     createSquishParticles(p.x, p.y, 'spark');
                 }
             });
 
             // Player vs Enemy Collisions
-            if (!enemy.isDead && PhysicsEngine.checkCollision(vars.player, enemy)) {
+            if (PhysicsEngine.checkCollision(vars.player, enemy)) {
                 if (vars.player.vy > 0.5 && vars.player.y + vars.player.height - vars.player.vy < enemy.y + 15) {
                     enemy.takeDamage(1);
                     vars.player.vy = vars.player.jumpForce * 0.8;
@@ -205,10 +212,10 @@ export default function GameCanvas({
         PhysicsEngine.handlePlatformCollisions(vars.player, vars.level.platforms);
 
         // Collect items
-        vars.level.items.forEach((item, idx) => {
+        vars.level.items.forEach((item) => {
             const itemRect = { x: item.x, y: item.y, width: 32, height: 32 };
             if (PhysicsEngine.checkCollision(vars.player, itemRect)) {
-                vars.level.items.splice(idx, 1);
+                item.collected = true;
                 createSquishParticles(item.x+15, item.y+15, 'spark');
                 if (item.type === 'coin') {
                     vars.player.coins++;
@@ -223,6 +230,8 @@ export default function GameCanvas({
                 }
             }
         });
+        vars.level.items = vars.level.items.filter(item => !item.collected);
+        vars.projectiles = vars.projectiles.filter(p => p.life > 0 && p.active !== false);
 
         // Bounds death check
         if (vars.player.y > vars.height + 100) vars.player.hearts = 0;
@@ -264,12 +273,12 @@ export default function GameCanvas({
         });
 
         // Effect particles
-        vars.particles.forEach((p, idx) => {
+        vars.particles.forEach((p) => {
             p.x += p.vx;
             p.y += p.vy;
             p.life--;
-            if (p.life <= 0) vars.particles.splice(idx, 1);
         });
+        vars.particles = vars.particles.filter(p => p.life > 0);
 
         // Update React HUD states
         const progressPercent = Math.min(100, Math.max(0, Math.round((vars.player.x / (vars.level.width * vars.level.tileSize)) * 100)));
@@ -309,27 +318,40 @@ export default function GameCanvas({
         const level = vars.level;
         if (!level) return;
 
-        // 1. Draw Sky (Deep Gradients)
-        const skyGrad = ctx.createLinearGradient(0, 0, 0, vars.height);
-        skyGrad.addColorStop(0, level.skyColor[0]);
-        skyGrad.addColorStop(1, level.skyColor[1]);
-        ctx.fillStyle = skyGrad;
+        // 1. Draw Sky (Deep Gradients - cached)
+        const skyKey = level.skyColor.join(',');
+        if (vars.skyGradientKey !== skyKey || !vars.skyGradient) {
+            const skyGrad = ctx.createLinearGradient(0, 0, 0, vars.height);
+            skyGrad.addColorStop(0, level.skyColor[0]);
+            skyGrad.addColorStop(1, level.skyColor[1]);
+            vars.skyGradient = skyGrad;
+            vars.skyGradientKey = skyKey;
+        }
+        ctx.fillStyle = vars.skyGradient;
         ctx.fillRect(0, 0, vars.width, vars.height);
 
-        // Atmospheric glowing sun / moon
+        // Atmospheric glowing sun / moon (cached)
         ctx.globalCompositeOperation = 'lighter';
-        const sunGrad = ctx.createRadialGradient(vars.width * 0.8, vars.height * 0.3, 10, vars.width * 0.8, vars.height * 0.3, 300);
-        sunGrad.addColorStop(0, 'rgba(251, 191, 36, 0.4)');
-        sunGrad.addColorStop(1, 'rgba(251, 191, 36, 0)');
-        ctx.fillStyle = sunGrad;
+        if (!vars.sunGradient) {
+            const sunGrad = ctx.createRadialGradient(vars.width * 0.8, vars.height * 0.3, 10, vars.width * 0.8, vars.height * 0.3, 300);
+            sunGrad.addColorStop(0, 'rgba(251, 191, 36, 0.4)');
+            sunGrad.addColorStop(1, 'rgba(251, 191, 36, 0)');
+            vars.sunGradient = sunGrad;
+        }
+        ctx.fillStyle = vars.sunGradient;
         ctx.fillRect(0, 0, vars.width, vars.height);
         ctx.globalCompositeOperation = 'source-over';
 
         // 2. Parallax Layers (Generated Backgrounds)
         const drawParallaxLayer = (image, speedMultiplier, yOffset, scale) => {
-            if (!image || !image.complete || image.naturalWidth === 0) return;
-            const scaledWidth = image.width * scale;
-            const scaledHeight = image.height * scale;
+            if (!image) return;
+            const isCanvas = image instanceof HTMLCanvasElement;
+            if (!isCanvas && (!image.complete || image.naturalWidth === 0)) return;
+            
+            const w = isCanvas ? image.width : image.width;
+            const h = isCanvas ? image.height : image.height;
+            const scaledWidth = w * scale;
+            const scaledHeight = h * scale;
             
             const totalCameraOffset = vars.camera.x * speedMultiplier;
             const tileIndexStart = Math.floor(totalCameraOffset / scaledWidth);
@@ -357,16 +379,23 @@ export default function GameCanvas({
         };
 
         const bgImg = assets.images.distantMountains;
-        const bgImgWidth = (bgImg && bgImg.naturalWidth) ? bgImg.naturalWidth : 1024;
-        const bgImgHeight = (bgImg && bgImg.naturalHeight) ? bgImg.naturalHeight : 512;
-        const bgScale = Math.max(vars.width / bgImgWidth, vars.height / bgImgHeight);
+        const blurredBg = getBlurredBackground(bgImg);
+        const activeBg = blurredBg || bgImg;
         
-        // Distant Mountains / Custom Village Background (Top Aligned, scaled to fit height, blurred for depth)
-        ctx.save();
-        ctx.imageSmoothingEnabled = true; // Smooth scaling for high-res photo background
-        ctx.filter = 'blur(3px) brightness(95%)'; // Cinematic depth-of-field blur and brightness balance
-        drawParallaxLayer(bgImg, 0.05, 0, bgScale);
-        ctx.restore();
+        if (activeBg) {
+            const bgImgWidth = (bgImg && bgImg.naturalWidth) ? bgImg.naturalWidth : 1024;
+            const bgImgHeight = (bgImg && bgImg.naturalHeight) ? bgImg.naturalHeight : 512;
+            const bgScale = Math.max(vars.width / bgImgWidth, vars.height / bgImgHeight);
+            
+            // Distant Mountains / Custom Village Background (Top Aligned, scaled to fit height, blurred for depth)
+            ctx.save();
+            ctx.imageSmoothingEnabled = true; // Smooth scaling for high-res photo background
+            if (!blurredBg) {
+                ctx.filter = 'blur(3px) brightness(95%)'; // Draw-time fallback if offscreen blurring is not ready
+            }
+            drawParallaxLayer(activeBg, 0.05, 0, bgScale);
+            ctx.restore();
+        }
 
         // Fog overlay for depth
         ctx.fillStyle = 'rgba(255,255,255,0.05)';
@@ -442,11 +471,14 @@ export default function GameCanvas({
         ctx.globalAlpha = 1.0;
         ctx.globalCompositeOperation = 'source-over';
         
-        // Post-processing vignette
-        const vig = ctx.createRadialGradient(vars.width/2, vars.height/2, vars.height*0.4, vars.width/2, vars.height/2, vars.width*0.8);
-        vig.addColorStop(0, 'rgba(0,0,0,0)');
-        vig.addColorStop(1, 'rgba(0,0,0,0.6)');
-        ctx.fillStyle = vig;
+        // Post-processing vignette (cached)
+        if (!vars.vignetteGradient) {
+            const vig = ctx.createRadialGradient(vars.width/2, vars.height/2, vars.height*0.4, vars.width/2, vars.height/2, vars.width*0.8);
+            vig.addColorStop(0, 'rgba(0,0,0,0)');
+            vig.addColorStop(1, 'rgba(0,0,0,0.6)');
+            vars.vignetteGradient = vig;
+        }
+        ctx.fillStyle = vars.vignetteGradient;
         ctx.fillRect(0, 0, vars.width, vars.height);
     };
 
@@ -459,3 +491,21 @@ export default function GameCanvas({
         />
     );
 }
+
+// Pre-render a blurred offscreen canvas from a background image to avoid using slow runtime ctx.filter
+const getBlurredBackground = (image) => {
+    if (!image || !image.complete || image.naturalWidth === 0) return null;
+    if (image._blurredCanvas) return image._blurredCanvas;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = image.naturalWidth;
+    canvas.height = image.naturalHeight;
+    const ctx = canvas.getContext('2d');
+    
+    // Apply cinematic blur & brightness once offscreen
+    ctx.filter = 'blur(3px) brightness(95%)';
+    ctx.drawImage(image, 0, 0);
+    
+    image._blurredCanvas = canvas;
+    return canvas;
+};

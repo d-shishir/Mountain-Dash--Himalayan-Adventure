@@ -102,9 +102,9 @@ export default function HUD({
                 </div>
             </div>
 
-            <div className="hud-group" style={{ flexDirection: 'column', alignItems: 'center' }}>
+            <div className="hud-group hud-center-group">
                 <div className="hud-center-title">{levelName}</div>
-                <div style={{ width: '300px', height: '6px', background: 'rgba(0,0,0,0.5)', borderRadius: '3px', overflow: 'hidden' }}>
+                <div className="hud-progress-bar">
                     <motion.div 
                         style={{ height: '100%', background: 'linear-gradient(90deg, #e11d48, #f59e0b)' }}
                         initial={{ width: 0 }}
