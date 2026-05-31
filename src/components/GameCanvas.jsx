@@ -205,7 +205,8 @@ export default function GameCanvas({
 
         // Collect items
         vars.level.items.forEach((item, idx) => {
-            if (PhysicsEngine.checkCollision(vars.player, item)) {
+            const itemRect = { x: item.x, y: item.y, width: 32, height: 32 };
+            if (PhysicsEngine.checkCollision(vars.player, itemRect)) {
                 vars.level.items.splice(idx, 1);
                 createSquishParticles(item.x+15, item.y+15, 'spark');
                 if (item.type === 'coin') {
@@ -322,25 +323,46 @@ export default function GameCanvas({
         ctx.fillRect(0, 0, vars.width, vars.height);
         ctx.globalCompositeOperation = 'source-over';
 
-        // 2. Parallax Layers (Mountains/Himalayas)
-        const drawMountain = (color, offsetMultiplier, yBase, heights) => {
-            ctx.fillStyle = color;
-            ctx.beginPath();
-            ctx.moveTo(0, vars.height);
-            for (let i = 0; i < heights.length; i++) {
-                const px = i * 250 - (vars.camera.x * offsetMultiplier) % (heights.length * 250);
-                // Draw multiple repeats to cover screen
-                ctx.lineTo(px, heights[i] + yBase);
-                ctx.lineTo(px + 250, heights[(i+1)%heights.length] + yBase);
+        // 2. Parallax Layers (Generated Backgrounds)
+        const drawParallaxLayer = (image, speedMultiplier, yOffset, scale) => {
+            if (!image || !image.complete || image.naturalWidth === 0) return;
+            const scaledWidth = image.width * scale;
+            const scaledHeight = image.height * scale;
+            
+            const totalCameraOffset = vars.camera.x * speedMultiplier;
+            const tileIndexStart = Math.floor(totalCameraOffset / scaledWidth);
+            const offsetX = -(totalCameraOffset % scaledWidth);
+            
+            let currentX = offsetX;
+            let currentTileIndex = tileIndexStart;
+            
+            while (currentX < vars.width) {
+                const isFlipped = Math.abs(currentTileIndex % 2) === 1;
+                ctx.save();
+                if (isFlipped) {
+                    ctx.translate(Math.floor(currentX + scaledWidth), yOffset);
+                    ctx.scale(-1, 1);
+                    ctx.drawImage(image, 0, 0, Math.ceil(scaledWidth), Math.ceil(scaledHeight));
+                } else {
+                    ctx.translate(Math.floor(currentX), yOffset);
+                    ctx.drawImage(image, 0, 0, Math.ceil(scaledWidth), Math.ceil(scaledHeight));
+                }
+                ctx.restore();
+                
+                currentX += scaledWidth;
+                currentTileIndex++;
             }
-            // Ensure closure across screen width
-            ctx.lineTo(vars.width + 500, vars.height);
-            ctx.closePath();
-            ctx.fill();
         };
 
-        drawMountain('rgba(15, 23, 42, 0.3)', 0.05, 50, [150, 300, 100, 250, 200, 150]);
-        drawMountain('rgba(15, 23, 42, 0.5)', 0.15, 120, [220, 180, 280, 190, 240, 220]);
+        const bgScale = Math.max(vars.width / 1024, vars.height / 1024);
+        
+        // Distant Mountains (Top Aligned)
+        drawParallaxLayer(assets.images.distantMountains, 0.05, 0, bgScale);
+        
+        // Midground Forest (Bottom Aligned slightly lower)
+        const forestScale = bgScale * 1.2; // Slightly larger for midground depth
+        const forestHeight = 1024 * forestScale;
+        drawParallaxLayer(assets.images.midgroundForest, 0.15, vars.height - forestHeight + 120, forestScale);
 
         // Fog overlay for depth
         ctx.fillStyle = 'rgba(255,255,255,0.05)';

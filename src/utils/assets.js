@@ -3,7 +3,19 @@
 class AssetGenerator {
     constructor() {
         this.sprites = {};
+        this.images = {};
         this.generateAssets();
+        this.loadImages();
+    }
+
+    loadImages() {
+        const bg1 = new Image();
+        bg1.src = '/images/custom_bg.png'; // User's uploaded image
+        this.images.distantMountains = bg1;
+
+        const bg2 = new Image();
+        bg2.src = '/images/bg_midground_forest.png';
+        this.images.midgroundForest = bg2;
     }
 
     generateAssets() {
