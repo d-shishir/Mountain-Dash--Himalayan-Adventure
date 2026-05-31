@@ -13,52 +13,31 @@ export default function MobileControls({ onTouchDown, onTouchUp }) {
 
     return (
         <div id="mobile-controls">
-            <div className="control-group" style={{ position: 'relative', width: 150, height: 150 }}>
+            {/* Left side D-Pad with perfect spacing (no overlaps) */}
+            <div className="control-group" style={{ position: 'relative', width: 180, height: 120 }}>
                 <button 
                     className="touch-btn" 
-                    style={{ position: 'absolute', left: 0, top: 50 }}
+                    style={{ position: 'absolute', left: 0, top: 20, width: 60, height: 60 }}
                     onTouchStart={(e) => handleTouch(e, 'left', true)}
                     onTouchEnd={(e) => handleTouch(e, 'left', false)}
                 >
-                    <ArrowLeft size={32} />
+                    <ArrowLeft size={28} />
                 </button>
                 <button 
                     className="touch-btn" 
-                    style={{ position: 'absolute', left: 50, bottom: 0 }}
+                    style={{ position: 'absolute', left: 60, bottom: 0, width: 60, height: 60 }}
                     onTouchStart={(e) => handleTouch(e, 'down', true)}
                     onTouchEnd={(e) => handleTouch(e, 'down', false)}
                 >
-                    <ArrowDown size={32} />
+                    <ArrowDown size={28} />
                 </button>
                 <button 
                     className="touch-btn" 
-                    style={{ position: 'absolute', right: 0, top: 50 }}
+                    style={{ position: 'absolute', left: 120, top: 20, width: 60, height: 60 }}
                     onTouchStart={(e) => handleTouch(e, 'right', true)}
                     onTouchEnd={(e) => handleTouch(e, 'right', false)}
                 >
-                    <ArrowRight size={32} />
-                </button>
-            </div>
-            
-            <div className="control-group" style={{ alignItems: 'flex-end' }}>
-                <button 
-                    className="touch-btn btn-attack" 
-                    style={{ width: 65, height: 65, marginBottom: 10 }}
-                    onTouchStart={(e) => handleTouch(e, 'attack', true)}
-                    onTouchEnd={(e) => handleTouch(e, 'attack', false)}
-                >
-                    <Swords size={32} />
-                </button>
-                <button 
-                    className="touch-btn btn-jump" 
-                    onTouchStart={(e) => {
-                        e.preventDefault();
-                        onTouchDown('jump');
-                        onTouchDown('jumpPressed');
-                    }}
-                    onTouchEnd={(e) => handleTouch(e, 'jump', false)}
-                >
-                    <ArrowUp size={40} />
+                    <ArrowRight size={28} />
                 </button>
             </div>
         </div>

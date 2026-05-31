@@ -207,7 +207,11 @@ export default function App() {
         <div id="game-container">
             {/* 1. Backdrop */}
             {screen !== 'play' && screen !== 'paused' && (
-                <div id="menu-background"></div>
+                <div id="menu-background">
+                    <div className="snow-bg"></div>
+                    <div className="snow-bg-fast"></div>
+                    <div className="fog-bg"></div>
+                </div>
             )}
 
             {/* 2. Gameplay canvas loops */}

@@ -93,8 +93,8 @@ class AudioManager {
         osc.frequency.setValueAtTime(120, time);
         osc.frequency.exponentialRampToValueAtTime(50, time + 0.15);
 
-        gain.gain.setValueAtTime(0.3, time);
-        gain.gain.linearRampToValueAtTime(0.01, time + 0.18);
+        gain.gain.setValueAtTime(0.1, time); // Quieter (was 0.3)
+        gain.gain.linearRampToValueAtTime(0.002, time + 0.18);
 
         osc.start(time);
         osc.stop(time + 0.2);
@@ -123,8 +123,8 @@ class AudioManager {
         filter.connect(gain);
         gain.connect(this.ctx.destination);
 
-        gain.gain.setValueAtTime(0.18, time);
-        gain.gain.linearRampToValueAtTime(0.01, time + 0.04);
+        gain.gain.setValueAtTime(0.06, time); // Quieter (was 0.18)
+        gain.gain.linearRampToValueAtTime(0.002, time + 0.04);
 
         noise.start(time);
         noise.stop(time + 0.05);
@@ -156,8 +156,8 @@ class AudioManager {
         osc.frequency.setValueAtTime(freq, time);
 
         gain.gain.setValueAtTime(0, time);
-        gain.gain.linearRampToValueAtTime(0.15, time + 0.05);
-        gain.gain.setValueAtTime(0.15, time + duration - 0.05);
+        gain.gain.linearRampToValueAtTime(0.05, time + 0.05); // Quieter (was 0.15)
+        gain.gain.setValueAtTime(0.05, time + duration - 0.05);
         gain.gain.linearRampToValueAtTime(0, time + duration);
 
         lfo.start(time);

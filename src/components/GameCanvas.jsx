@@ -196,7 +196,8 @@ export default function GameCanvas({
                     audio.playSFX('jump');
                     createSquishParticles(enemy.x + enemy.width/2, enemy.y, 'spark');
                 } else {
-                    vars.player.takeDamage();
+                    const isBoss = enemy.type.startsWith('boss_');
+                    vars.player.takeDamage(isBoss ? 1.0 : 0.5);
                 }
             }
         });
@@ -303,6 +304,7 @@ export default function GameCanvas({
         const canvas = canvasRef.current;
         if (!canvas) return;
         const ctx = canvas.getContext('2d');
+        ctx.imageSmoothingEnabled = false; // Make foreground assets extremely crisp!
         const vars = gameVars.current;
         const level = vars.level;
         if (!level) return;
@@ -354,15 +356,17 @@ export default function GameCanvas({
             }
         };
 
-        const bgScale = Math.max(vars.width / 1024, vars.height / 1024);
+        const bgImg = assets.images.distantMountains;
+        const bgImgWidth = (bgImg && bgImg.naturalWidth) ? bgImg.naturalWidth : 1024;
+        const bgImgHeight = (bgImg && bgImg.naturalHeight) ? bgImg.naturalHeight : 512;
+        const bgScale = Math.max(vars.width / bgImgWidth, vars.height / bgImgHeight);
         
-        // Distant Mountains (Top Aligned)
-        drawParallaxLayer(assets.images.distantMountains, 0.05, 0, bgScale);
-        
-        // Midground Forest (Bottom Aligned slightly lower)
-        const forestScale = bgScale * 1.2; // Slightly larger for midground depth
-        const forestHeight = 1024 * forestScale;
-        drawParallaxLayer(assets.images.midgroundForest, 0.15, vars.height - forestHeight + 120, forestScale);
+        // Distant Mountains / Custom Village Background (Top Aligned, scaled to fit height, blurred for depth)
+        ctx.save();
+        ctx.imageSmoothingEnabled = true; // Smooth scaling for high-res photo background
+        ctx.filter = 'blur(3px) brightness(95%)'; // Cinematic depth-of-field blur and brightness balance
+        drawParallaxLayer(bgImg, 0.05, 0, bgScale);
+        ctx.restore();
 
         // Fog overlay for depth
         ctx.fillStyle = 'rgba(255,255,255,0.05)';

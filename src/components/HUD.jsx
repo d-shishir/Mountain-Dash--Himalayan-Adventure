@@ -16,18 +16,37 @@ export default function HUD({
     const renderHearts = () => {
         const heartElements = [];
         for (let i = 0; i < maxHearts; i++) {
-            const isActive = i < hearts;
+            const isFull = i < Math.floor(hearts);
+            const isHalf = !isFull && (i < hearts);
+            
+            let fillColor = "transparent";
+            let strokeColor = "#475569";
+            let opacity = 0.35;
+            let scale = 0.85;
+            
+            if (isFull) {
+                fillColor = "#e11d48";
+                strokeColor = "#e11d48";
+                opacity = 1;
+                scale = 1.0;
+            } else if (isHalf) {
+                fillColor = "url(#half-heart-grad)";
+                strokeColor = "#e11d48";
+                opacity = 1;
+                scale = 0.95;
+            }
+            
             heartElements.push(
                 <motion.div
                     key={i}
                     initial={{ scale: 0.8 }}
-                    animate={{ scale: isActive ? 1 : 0.8, opacity: isActive ? 1 : 0.3 }}
+                    animate={{ scale: scale, opacity: opacity }}
                     transition={{ type: "spring", stiffness: 300, damping: 20 }}
                 >
                     <Heart 
                         size={24} 
-                        fill={isActive ? "#e11d48" : "transparent"} 
-                        color={isActive ? "#e11d48" : "#475569"} 
+                        fill={fillColor} 
+                        color={strokeColor} 
                     />
                 </motion.div>
             );
@@ -51,6 +70,16 @@ export default function HUD({
             animate={{ y: 0, opacity: 1 }}
             transition={{ duration: 0.5, ease: "easeOut" }}
         >
+            {/* Hidden SVG for half-heart gradient fills */}
+            <svg width="0" height="0" style={{ position: 'absolute' }}>
+                <defs>
+                    <linearGradient id="half-heart-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="50%" stopColor="#e11d48" />
+                        <stop offset="50%" stopColor="transparent" stopOpacity="0" />
+                    </linearGradient>
+                </defs>
+            </svg>
+
             <div className="hud-group">
                 <div className="hud-stat-pill">
                     <div className="hearts-container">

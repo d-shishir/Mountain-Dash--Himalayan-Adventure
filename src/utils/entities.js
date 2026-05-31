@@ -204,12 +204,12 @@ export class Player {
         audio.playSFX('attack');
     }
 
-    takeDamage() {
+    takeDamage(amount = 0.5) {
         if (this.invulnerableTimer > 0 || this.activePowerup === 'invincible') return;
         
-        this.hearts--;
+        this.hearts -= amount;
         audio.playSFX('hurt');
-        this.invulnerableTimer = 60;
+        this.invulnerableTimer = 90; // 1.5 seconds of recovery invulnerability
         this.hitStopTimer = 6; // Brief freeze for impact
         
         this.vy = -5;
@@ -266,11 +266,12 @@ export class Enemy {
         this.vx = -1.5;
         this.vy = 0;
         this.facing = 'left';
+        this.hp = 1;
         
         this.setupDimensions();
+        this.maxHp = this.hp;
 
         this.onGround = false;
-        this.hp = 1;
         this.isDead = false;
         this.patrolDist = 120;
         this.startX = x;
@@ -381,11 +382,10 @@ export class Enemy {
         ctx.restore();
 
         if (this.type.startsWith('boss_')) {
-            const maxHp = this.type === 'boss_monkey' ? 15 : (this.type === 'boss_yak' ? 20 : 35);
             ctx.fillStyle = 'rgba(0,0,0,0.6)';
             ctx.fillRect(renderX, renderY - 14, this.width, 6);
             ctx.fillStyle = '#e11d48';
-            ctx.fillRect(renderX, renderY - 14, this.width * (this.hp / maxHp), 6);
+            ctx.fillRect(renderX, renderY - 14, this.width * (this.hp / this.maxHp), 6);
         }
     }
 }
